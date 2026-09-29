@@ -1,0 +1,8 @@
+# Keep LF line endings on every platform, so file hashes tracked by targets
+# and the published CSVs are identical wherever the repo is cloned.
+* text=auto eol=lf
+*.ttf binary
+*.zip binary
+*.png binary
+*.pdf binary
+*.woff2 binary

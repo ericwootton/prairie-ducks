@@ -1,0 +1,421 @@
+---
+title: "May ponds and breeding ducks in Prairie Canada, 1955–2026"
+author: "{{< var author.name >}}"
+date: last-modified
+date-format: "MMMM YYYY"
+bibliography: references.bib
+fig-width: 6.5
+tbl-colwidths: false
+knitr:
+  opts_chunk:
+    dev: ragg_png
+format:
+  typst:
+    output-file: prairie-ducks-methods.pdf
+    citeproc: true
+    include-in-header:
+      text: |
+        #show table: set text(size: 8.5pt)
+        #show table.cell: set par(justify: false)
+    mainfont: "Source Serif 4"
+    font-paths: [assets/fonts]
+    fontsize: 10pt
+    papersize: us-letter
+    margin:
+      x: 1in
+      y: 0.9in
+    fig-dpi: 250
+---
+
+```{r}
+#| label: setup
+#| include: false
+store <- if (dir.exists("_targets")) "_targets" else "../_targets"
+root <- dirname(store)
+rd <- function(name) targets::tar_read_raw(name, store = store)
+source(file.path(root, "R", "figures.R"))
+register_site_fonts(file.path(root, "assets", "fonts"))
+library(mgcv)  # gratia's simulation-based QQ plot calls rTweedie() without namespace qualification.
+library(patchwork)  # print methods for the combined figures
+
+diag <- rd("diagnostics"); recent <- rd("recent"); sens <- rd("sensitivity")
+shift <- rd("shift"); shift_y <- rd("shift_year"); hl <- rd("headline")
+totals <- rd("totals"); spp <- rd("species"); over <- rd("overflight")
+parity <- rd("scenario_parity"); ponds <- rd("ponds"); ref <- sort(rd("ref_years"))
+curves <- rd("curves"); curves_year <- rd("curves_year"); strata <- rd("strata_sf")
+lab <- stats::setNames(spp$name_en, spp$species)
+ord <- recent$species[order(-recent$es_med)]
+
+# Keep 2 decimal places, use a true minus sign, and do not display -0.00.
+f2 <- function(x) sub("^-", "−", formatC(round(x, 2) + 0, format = "f", digits = 2))
+iv <- function(lo, hi) paste0(f2(lo), " to ", f2(hi))
+n0 <- function(x) format(round(x), big.mark = ",", scientific = FALSE, trim = TRUE)
+k0 <- function(x) n0(round(x, -3))
+pc <- function(x, d = 0) paste0(formatC(100 * x, format = "f", digits = d), "%")
+val <- function(tbl, sp, col) tbl[[col]][tbl$species == sp]
+es <- function(sp) paste0(f2(val(recent, sp, "es_med")), " (95% interval ", iv(val(recent, sp, "es_lo"), val(recent, sp, "es_hi")), ")")
+curve_at <- function(tbl, sp, y) tbl$med[tbl$species == sp & tbl$year == y]
+per_pond <- function(sp, yrs) {
+  d <- totals[totals$species == sp & totals$year %in% yrs, ]
+  mean(d$prairie_total / d$prairie_ponds)
+}
+
+n_surveys <- length(unique(ponds$year))
+# Stratum 36 lacked aerial surveys in some years. This stratum's maximum share of prairie ponds and
+# of any species' breeding birds in surveys before and after each gap.
+gap36 <- setdiff(seq(min(ponds$year), max(ponds$year)), ponds$year[ponds$stratum == 36]) |> setdiff(c(2020, 2021))
+near36 <- intersect(c(gap36 - 1, gap36 + 1), ponds$year)
+share36 <- function(df, value) {
+  df |>
+    dplyr::filter(year %in% near36) |>
+    dplyr::group_by(dplyr::across(dplyr::any_of(c("species", "year")))) |>
+    dplyr::summarise(s = sum(.data[[value]][stratum == 36]) / sum(.data[[value]]), .groups = "drop") |>
+    dplyr::pull(s) |>
+    max()
+}
+s36_ponds <- share36(ponds, "ponds")
+s36_birds <- share36(rd("bpop"), "estimate")
+n_rows <- unique(diag$n)
+area <- range(strata$area_km2[strata$prairie])
+early_yrs <- seq(shift$early_from[1], shift$early_to[1])
+
+sw <- tidyr::pivot_wider(sens[, c("species", "model", "es_med")], names_from = model, values_from = es_med)
+d_trend <- max(abs(sw$trend_x2 - sw$main))
+d_ar1 <- max(abs(sw$ar1_0.2 - sw$main))
+d_year <- max(abs(sw$year_re - sw$main))
+same_rank <- function(x) identical(order(-sw$main), order(-x))
+k_range <- function(model) range(sens$k_index_min[sens$model == model])
+top_bottom_same <- function(x) sw$species[which.max(x)] == sw$species[which.max(sw$main)] &&
+  sw$species[which.min(x)] == sw$species[which.min(sw$main)]
+nopi_over <- over[over$species == "NOPI", ]
+over_wide <- tidyr::pivot_wider(over[, c("species", "era", "slope")], names_from = era, values_from = slope)
+st <- rd("stratum_table")
+st_range <- function(sp) range(st$es_med[st$species == sp])
+st_spread <- tapply(st$es_med, st$species, function(x) diff(range(x)))
+ratio <- range(c(sw$main[sw$species == "NOPI"] / sw$main[sw$species == "MALL"],
+                                  sw$trend_x2[sw$species == "NOPI"] / sw$trend_x2[sw$species == "MALL"],
+                                  sw$ar1_0.2[sw$species == "NOPI"] / sw$ar1_0.2[sw$species == "MALL"],
+                                  sw$year_re[sw$species == "NOPI"] / sw$year_re[sw$species == "MALL"]))
+rose <- c("BWTE", "NSHO", "CANV")
+same_sign <- all(sign(shift$shift_med) == sign(shift_y$shift_med[match(shift$species, shift_y$species)]))
+```
+
+## Summary
+
+The web version, which includes an interactive wetland-loss calculator along with the data downloads, is available at [{{< var site >}}]({{< var site >}}).
+
+::: {.abstract}
+**Question:** How closely do ducks breeding in Prairie Canada follow the number of ponds present across the landscape in May? How does this relationship differ among species, and has it changed since the 1950s?
+
+**Data and model:** I used stratum estimates from the Waterfowl Breeding Population and Habitat Survey for the 15 strata of southern Alberta, Saskatchewan, and Manitoba, covering `r n_surveys` surveys from 1955 to 2026. For five species of dabbling ducks and the canvasback, I modelled the relationship between breeding population and May ponds using a hierarchical generalized additive model assuming a Tweedie error distribution. As smooth trends for the region and each stratum absorbed gradual changes, pond effects expressed as elasticity were estimated from year-to-year fluctuations in water availability.
+
+**Results:** Across the most recent ten surveys, a sustained 1% change in May ponds was associated with a change in the breeding population of Northern Pintail (`r f2(val(recent, "NOPI", "es_med"))`%; 95% interval `r iv(val(recent, "NOPI", "es_lo"), val(recent, "NOPI", "es_hi"))`) and Mallards (`r f2(val(recent, "MALL", "es_med"))`%; `r iv(val(recent, "MALL", "es_lo"), val(recent, "MALL", "es_hi"))`), with changes for other species falling between these values. Pond elasticity for pintail increased from `r f2(val(shift, "NOPI", "early_med"))` during `r min(early_yrs)`–`r max(early_yrs)` to `r f2(val(shift, "NOPI", "late_med"))` in recent years. However, this increase was smaller in the more conservative model that accounted for shocks shared across all strata in each year. Applied to recent population sizes, the main model implies that a 10% loss of May ponds throughout Prairie Canada would reduce the number of breeding dabbling ducks by about `r k0(-hl$dabbler_change$med)` individuals (90% interval `r k0(-hl$dabbler_change$hi)` to `r k0(-hl$dabbler_change$lo)`).
+
+**Caveat:** These elasticities describe responses to naturally occurring wet and dry years. Due to the permanent nature of drainage and the tendency for drainage to remove small basins first, the loss estimates serve as reference points rather than predictions.
+:::
+
+## Introduction
+
+The prairie pothole region across southern Alberta, Saskatchewan, and Manitoba contains millions of small, shallow wetlands, and in a wet spring the region draws a large proportion of North America's breeding dabbling ducks. Since 1955, the U.S. Fish and Wildlife Service and Canadian Wildlife Service have conducted the Waterfowl Breeding Population and Habitat Survey (WBPHS) by aircraft each May, counting ducks and ponds along the same set of transects [@smith1995]. These records now span `r n_surveys` surveys, matching bird populations with their habitat conditions from year to year.
+
+The tendency for ducks to follow water is well established [@johnson1988; @bethke1995]. However, the strength of this relationship across species, whether this relationship has changed as prairie has been converted to cropland, and the implications for the number of breeding ducks corresponding to wetlands that have been lost remain less settled. These questions are important for conservation planning, as small wetlands in the Canadian prairies continue to undergo drainage, and Northern Pintail numbers have not recovered. Across the most recent ten surveys, the number of pintails in the Canadian prairies averaged `r pc(-hl$pintail_pct_change)` lower than the 1955 to 1964 average. @podruzny2002 examined long-term associations among pintails, wetlands, and agriculture in this region, and more recent work linked pintail declines to cropland through where pintails nest and how many young they raise [@zhao2019; @buderman2020].
+
+This analysis revisits these questions with the full survey record, using one model structure for six species. It asks three questions of the public WBPHS stratum estimates:
+
+1. What is the pond elasticity of each species, the percent change in breeding birds that goes with a 1% change in May ponds?
+2. Has it changed since the survey began?
+3. What does it imply for a given loss of ponds?
+
+## Data
+
+### Survey and study area
+
+Each May, observers in fixed-wing aircraft count ducks and ponds along transects crossing each stratum of the survey. Ground observers repeat counts in a subset of segments to correct the aerial counts for birds missed from the aircraft. The U.S. Fish and Wildlife Service publishes the resulting breeding population estimates (BPOP) by stratum, species, and year, together with the number of May ponds and the standard errors associated with these estimates [@smith1995; @eyler2026].
+
+I used the 15 strata of Prairie Canada (@fig-study), comprising 26 to 29 in southern Alberta, 30 to 35 in southern Saskatchewan, and 36 to 40 in southern Manitoba. The strata range from about `r k0(area[1])` to `r k0(area[2])` km². Aerial surveys were not conducted in 2020 and 2021, resulting in `r n_surveys` surveys between 1955 and 2026. Stratum 36 was also not surveyed in `r paste(gap36, collapse = " and ")`, and prairie-wide totals for those years excluded this stratum. In the surveys either side of those years, the pond count in this stratum accounted for at most `r pc(s36_ponds, 1)` of the prairie-wide pond total, and this stratum held at most `r pc(s36_birds, 1)` of any species' breeding birds.
+
+I studied five species of dabbling ducks that dominate the prairie breeding population (Mallard, Northern Pintail, Blue-winged Teal, Gadwall, and Northern Shoveler), all of which nest on uplands. Additionally, I included Canvasback, which nests over water, for comparison.
+
+```{r}
+#| label: fig-study
+#| fig-cap: "The 15 WBPHS strata in Prairie Canada that I used in this analysis. Strata 26–29 are in Alberta, 30–35 in Saskatchewan, and 36–40 in Manitoba. Grey outlines to the south indicate strata 41–49 in the United States, which were not included in the modelling."
+#| fig-alt: "Map of southern Alberta, Saskatchewan, and Manitoba divided into 15 numbered survey strata, from 26 in the northwest to 40 in the southeast."
+#| fig-height: 3.3
+rd("fig_study")
+```
+
+### Preparation
+
+The distributed files listed only the species observed in each stratum. I filled in zeros for all strata and years with an aerial survey, treating unobserved species as zeros rather than missing values. Standard errors recorded as "NULL" were treated as missing values. I log-transformed pond counts and centred these within each stratum, such that the pond variable in the model represented deviations from the typical log pond count for that stratum. I included the previous year's pond count in the model only when a survey had been conducted in the preceding calendar year. Thus, I excluded 1955, the first spring following the 2020–21 interruption, and the springs following missing years in stratum 36, retaining `r n0(n_rows)` combinations of stratum and year for each species.
+
+@fig-trends shows the prairie-wide counts of May ponds and individual breeding dabbling ducks, aggregated across 15 strata, that formed the underlying data.
+
+```{r}
+#| label: fig-trends
+#| fig-cap: "May ponds (upper panel) and numbers of breeding dabbling ducks stacked by species (lower panel) in Prairie Canada during 1955–2026. Values shown are totals for survey strata 26–40. Yellow shaded bands indicate the ten driest springs. The gap corresponds to 2020–21, when aerial surveys were not conducted."
+#| fig-alt: "Two charts sharing a time axis. Ponds swing between about 1.4 and 7.3 million with no strong trend. Dabbling ducks, stacked by species with Northern Pintail at the bottom, fall from about 20 million in the mid-1950s to between 5 and 16 million, rising and falling with ponds. The pintail band narrows over time."
+#| fig-height: 4.6
+rd("fig_trends")
+```
+
+## Model
+
+### Structure
+
+For each species I fitted a hierarchical generalized additive model [@pedersen2019] to the breeding population estimate $y_{st}$ in stratum $s$ and year $t$:
+
+$$
+\begin{aligned}
+y_{st} &\sim \text{Tweedie}(\mu_{st},\ \phi / w_{st},\ p), \qquad 1 < p < 2, \\
+\log \mu_{st} &= \alpha + f(t) + f_s(t) + \left[\beta(t) + b_s\right] x_{st} + \gamma\, x_{s,t-1},
+\end{aligned}
+$$
+
+where $x_{st}$ is log May ponds centred within the stratum. The terms are:
+
+- $f(t)$, a smooth prairie-wide trend (thin-plate basis, 20 functions);
+- $f_s(t)$, a smooth trend for each stratum, penalized towards zero and sharing one smoothing parameter (a factor-smooth interaction, 10 functions each; the "GS" model of @pedersen2019);
+- $\beta(t)$, the prairie-wide pond elasticity, allowed to change smoothly over time (8 functions);
+- $b_s \sim N(0, \sigma_b^2)$, each stratum's departure from that elasticity;
+- $\gamma$, the carry-over from last year's ponds.
+
+The trend terms account for gradual changes within each stratum, regardless of their cause. Thus, the pond terms are estimated from year-to-year variation, reflecting whether bird abundance in a stratum was higher than predicted by the trend in years when water was more abundant than usual in that stratum.
+
+A Tweedie distribution with an estimated power parameter $p$ handles zero counts for relatively rare species in some strata without adding a constant before log transformation. Weights $w_{st}$ reflect the precision of the survey itself in model fitting:
+
+$$
+w_{st} \propto \frac{1}{\mathrm{CV}_{st}^2 + \operatorname{median}(\mathrm{CV}^2)},
+$$
+
+where $\mathrm{CV}_{st}$ is the estimate's coefficient of variation. The median term provides a lower bound for variation not captured by the survey standard errors, preventing the most precise stratum and year combinations from dominating. For zero estimates and estimates without standard errors, I used the median CV. I adjusted the weights to have a mean of 1 within each species.
+
+Models were fitted with `mgcv::bam()` by fast REML with discretized covariates [@wood2011; @wood2017]:
+
+```r
+bam(
+  estimate ~ s(year, k = 20) +                        # Prairie-wide trend, f(t)
+    s(year, stratum_f, bs = "fs", k = 10, m = 2) +    # trend for each stratum, f_s(t)
+    s(year, by = log_ponds_c, k = 8) +                # pond elasticity over time, beta(t)
+    s(stratum_f, log_ponds_c, bs = "re") +            # Deviations by stratum, b_s
+    log_ponds_lag_c,                                  # Previous year's ponds, gamma
+  family = tw(), weights = w, data = d,
+  method = "fREML", discrete = TRUE
+)
+```
+
+### Pond elasticity
+
+With a log link function and log-transformed pond counts, the coefficient for pond count represents elasticity. For stratum $s$ in year $t$, **short-term elasticity** is $e_{st} = \beta(t) + b_s$, representing the percent change in breeding birds associated with a 1% change in pond count that spring. The **sustained elasticity** adds the carry-over to the short-term elasticity, giving $e_{st} + \gamma$, which represents the response when a change in pond count is sustained over two springs; the model considers no earlier history. Prairie averages are unweighted means across 15 strata, with each stratum contributing equally regardless of area or number of birds. "Recent" refers to the most recent ten surveys, namely `r paste(range(ref[ref < 2020]), collapse = "–")` and `r paste(range(ref[ref > 2021]), collapse = "–")`.
+
+### Uncertainty
+
+For each model, I sampled 300 sets of coefficients from an approximate posterior represented by a multivariate normal distribution centred on the estimates, with covariance corrected to account for smoothing parameter uncertainty (`vcov(m, unconditional = TRUE)`). Within each draw, I calculated elasticity exactly for all stratum and year combinations using the difference between two rows of the model linear predictor matrix, one using $x_{st} = 1$ and one using $x_{st} = 0$. All summaries (curves, maps, tables, and the calculator on the web page) were first calculated within each draw and then summarized across draws. I reported elasticity with a 95% interval and scenario totals with a 90% interval, both obtained from quantiles across draws. As each draw retained the correlations among strata and among years in the model, the interval for a sum or difference was not constructed from the respective individual intervals.
+
+### Scenarios
+
+For a proportional loss $\ell$ of May ponds in stratum $s$, the change in breeding birds of one species is
+
+$$
+\Delta_s = \bar{B}_s \left[ (1 - \ell)^{e_s} - 1 \right],
+$$
+
+where $\bar{B}_s$ is the stratum's mean breeding population for the most recent ten surveys, and $e_s$ is the mean elasticity over the same years, referring to sustained elasticity unless otherwise stated. Within each draw, changes are summed across the selected strata and species. For a small loss distributed across all strata in proportion to the pond count in each stratum, the number of breeding individuals per pond lost is $\sum_s e_s \bar{B}_s / \sum_s \bar{P}_s$, where $\bar{P}_s$ is the mean pond count for the stratum in recent years.
+
+### Checks
+
+I refitted every model three ways to see how much the answers depend on modelling choices:
+
+- **trend basis doubled**: 40 functions for the prairie-wide trend and 20 for each stratum;
+- **AR(1) residuals**: first-order autocorrelation within each stratum's run of consecutive years, with $\rho = 0.2$, above the mean lag-1 residual autocorrelation of every main fit;
+- **year effects**: a random intercept for each survey year, which absorbs any shock shared by all strata that spring, such as weather, timing, or conditions farther north. The pond effect is then estimated mainly from differences among strata within the same year.
+
+I checked the basis dimension using `mgcv::k.check()` and examined residual autocorrelation within each stratum. To validate the data, I summed the file, then compared the resulting totals with the annual status reports. The total for Mallards in the traditional survey area was `r n0(val(totals[totals$year == 2019, ], "MALL", "tsa_total"))` in 2019 and `r n0(val(totals[totals$year == 2024, ], "MALL", "tsa_total"))` in 2024, and May ponds in Prairie Canada numbered `r n0(totals$prairie_ponds[totals$species == "MALL" & totals$year == 2019])` and `r n0(totals$prairie_ponds[totals$species == "MALL" & totals$year == 2024])`, respectively. When rounded, these values agreed with the published figures for Mallards (9.4 and 6.6 million) and ponds (2.9 and 2.7 million) [@usfws2019; @usfws2024]. This comparison is repeated each time the pipeline runs, and the pipeline stops if any rounded total no longer agrees with the published value.
+
+The wetland-loss calculator on the web page runs in the browser, and I therefore implemented the calculations in both R and JavaScript. Each time the pipeline is run, the page's JavaScript is executed within R (through the V8 engine) using the exported draws as input, and the results are compared with those from the R implementation for five fixed scenarios; processing stops if the results do not agree. The maximum relative difference was `r formatC(max(parity$rel_diff), format = "e", digits = 0)`, which was at the level of machine precision.
+
+## Results
+
+### Model fit
+
+The models explained `r pc(min(diag$dev_expl))` to `r pc(max(diag$dev_expl))` of the deviance (@tbl-diag), with estimated Tweedie power parameters ranging from `r f2(min(diag$tweedie_p))` to `r f2(max(diag$tweedie_p))`. Carry-over from the previous year's pond counts was positive across all species, ranging from `r f2(min(diag$lag_coef))` (SE `r f2(diag$lag_se[which.min(diag$lag_coef)])`) for `r lab[diag$species[which.min(diag$lag_coef)]]` to `r f2(max(diag$lag_coef))` for `r lab[diag$species[which.max(diag$lag_coef)]]`.
+
+```{r}
+#| label: tbl-diag
+#| tbl-cap: "Model fit and diagnostics. The carry-over effect is the coefficient for the log of the previous year's pond count, reported alongside the standard error. The k-index is the minimum across all smooth terms. Residual autocorrelation is at lag 1 within strata, averaged over strata, with the maximum absolute stratum autocorrelation also reported."
+d <- diag[match(ord, diag$species), ]
+knitr::kable(
+  data.frame(
+    Species = lab[d$species],
+    `Deviance explained` = pc(d$dev_expl),
+    `Tweedie p` = f2(d$tweedie_p),
+    `Carry-over (SE)` = paste0(f2(d$lag_coef), " (", f2(d$lag_se), ")"),
+    `Smallest k-index` = f2(d$k_index_min),
+    `Residual autocorrelation` = paste0(f2(d$resid_acf1_mean), ", ", f2(d$resid_acf1_max)),
+    check.names = FALSE
+  ),
+  format = "pipe", align = "lrrrrr", row.names = FALSE
+)
+```
+
+Two diagnostic results require cautious interpretation. The lowest k-index values ranged from `r f2(min(diag$k_index_min))` to `r f2(max(diag$k_index_min))`, with values below 1 indicating that some temporally ordered pattern remained in the residuals. Doubling the number of basis functions for the trend produced little change in the k-index (`r f2(k_range("trend_x2")[1])` to `r f2(k_range("trend_x2")[2])`); thus, increasing trend flexibility did not remove this pattern. Adding year effects raised the k-index to `r f2(k_range("year_re")[1])` to `r f2(k_range("year_re")[2])`, suggesting that the pattern reflected shocks shared across strata in particular years rather than trends that were too stiff. Residual autocorrelation at lag 1 averaged across strata ranged from `r f2(min(diag$resid_acf1_mean))` to `r f2(max(diag$resid_acf1_mean))`, but reached `r f2(max(diag$resid_acf1_max))` in individual strata. The sensitivity refits below will show the extent to which these issues affect elasticity.
+
+### Elasticity by species
+
+Species rankings based on pond elasticity were the same for short-term elasticity and sustained elasticity (@tbl-elasticity). Northern Pintail showed the greatest response, with a sustained 1% change in pond numbers corresponding to a `r es("NOPI")` percent change in breeding birds. Mallard showed the smallest response (`r es("MALL")`). Northern Shoveler, Blue-winged Teal, and Canvasback were intermediate, and the value for Gadwall was close to that for Mallard.
+
+```{r}
+#| label: tbl-elasticity
+#| tbl-cap: "Median and 95% interval for pond elasticity averaged across the prairie region over the past ten surveys. Short-term elasticity refers only to ponds in the current spring, while sustained elasticity includes carry-over effects of ponds from the previous spring."
+r <- recent[match(ord, recent$species), ]
+knitr::kable(
+  data.frame(
+    Species = lab[r$species],
+    `Short-term` = paste0(f2(r$e_med), " (", iv(r$e_lo, r$e_hi), ")"),
+    Sustained = paste0(f2(r$es_med), " (", iv(r$es_lo, r$es_hi), ")"),
+    check.names = FALSE
+  ),
+  format = "pipe", align = "lrr", row.names = FALSE
+)
+```
+
+The rankings remained unchanged following the refits (@tbl-sensitivity). Doubling the trend basis changed no sustained elasticity by more than `r f2(d_trend)`, and none exceeded `r f2(d_ar1)` when using AR(1) residuals; `r if (same_rank(sw$trend_x2) && same_rank(sw$ar1_0.2)) "neither changed the order of the species" else "the order of the species changed slightly"`. Changes in elasticity were greater with year effects, reaching a maximum of `r f2(d_year)`, with pintail decreasing to `r f2(val(sw, "NOPI", "year_re"))` and Canvasback increasing to `r f2(val(sw, "CANV", "year_re"))`. Species in the middle of the rankings then reorder, but `r if (top_bottom_same(sw$year_re)) "pintail stays highest and Mallard lowest" else "the highest and lowest species change"`.
+
+```{r}
+#| label: tbl-sensitivity
+#| tbl-cap: "Recent sustained pond elasticity (median) in the main model and the three refits. For each refit, intervals are provided in the downloadable sensitivity analysis table."
+s <- sw[match(ord, sw$species), ]
+knitr::kable(
+  data.frame(
+    Species = lab[s$species],
+    `Main model` = f2(s$main),
+    `Trend basis doubled` = f2(s$trend_x2),
+    `AR(1), ρ = 0.2` = f2(s$ar1_0.2),
+    `Year effects` = f2(s$year_re),
+    check.names = FALSE
+  ),
+  format = "pipe", align = "lrrrr", row.names = FALSE
+)
+```
+
+### Change over time
+
+Over 70 years, elasticities changed, and not all in the same direction (@fig-curves, @tbl-shift). Short-term elasticity for pintail increased from `r f2(val(shift, "NOPI", "early_med"))` in the first ten surveys (`r min(early_yrs)`–`r max(early_yrs)`) to `r f2(val(shift, "NOPI", "late_med"))` in the last ten, representing an increase of `r f2(val(shift, "NOPI", "shift_med"))` (95% interval `r iv(val(shift, "NOPI", "shift_lo"), val(shift, "NOPI", "shift_hi"))`). The recent value was higher in all 300 draws. In contrast, short-term elasticity for Mallard decreased by `r f2(-val(shift, "MALL", "shift_med"))` (`r iv(-val(shift, "MALL", "shift_hi"), -val(shift, "MALL", "shift_lo"))`). Short-term elasticity also increased for Blue-winged Teal, Northern Shoveler, and Canvasback, with higher recent values in `r pc(min(shift$p_increase[shift$species %in% rose]))` to `r pc(max(shift$p_increase[shift$species %in% rose]))` of the draws, while Gadwall showed little change.
+
+With year effects included, the rise in pintail's elasticity was smaller, `r f2(val(shift_y, "NOPI", "shift_med"))` (`r iv(val(shift_y, "NOPI", "shift_lo"), val(shift_y, "NOPI", "shift_hi"))`), with higher recent values in `r pc(val(shift_y, "NOPI", "p_increase"))` of the draws. The decline in Mallard's elasticity was `r f2(-val(shift_y, "MALL", "shift_med"))` (`r iv(-val(shift_y, "MALL", "shift_hi"), -val(shift_y, "MALL", "shift_lo"))`). `r if (same_sign) "Every species changes in the same direction under both models; how firmly depends on the model." else "Not every species changes in the same direction under both models."`
+
+```{r}
+#| label: fig-curves
+#| fig-cap: "Prairie mean short-term pond elasticity by year. Coloured lines and shaded bands show the median and 95% interval from the main model, while grey lines show the medians from the three refit models used for sensitivity analysis. The dashed line at 1 indicates a response proportional to pond numbers. Panels are ordered by sustained elasticity in recent years."
+#| fig-alt: "Six small line charts of pond elasticity from 1956 to 2026. Northern Pintail rises from about 0.8 to 1.3. Northern Shoveler rises slowly from 0.6 to 0.8. Blue-winged Teal, Canvasback, Gadwall, and Mallard wave between about 0.1 and 0.9, with Mallard lowest. The refit lines mostly sit inside the main model's band."
+#| fig-height: 5.4
+rd("fig_curves")
+```
+
+```{r}
+#| label: tbl-shift
+#| tbl-cap: "Change in prairie-wide mean short-term elasticity between the first ten surveys and the last ten surveys, calculated within each of the draws. The final column gives the proportion of the 300 draws in which recent short-term elasticity was higher."
+sh <- shift[match(ord, shift$species), ]
+knitr::kable(
+  data.frame(
+    Species = lab[sh$species],
+    `First ten surveys` = f2(sh$early_med),
+    `Last ten surveys` = f2(sh$late_med),
+    `Change (95% interval)` = paste0(f2(sh$shift_med), " (", iv(sh$shift_lo, sh$shift_hi), ")"),
+    `Draws higher recently` = pc(sh$p_increase),
+    check.names = FALSE
+  ),
+  format = "pipe", align = "lrrrr", row.names = FALSE
+)
+```
+
+### Across strata
+
+Deviations in elasticity for individual strata from the prairie-wide elasticity were smaller than differences among species (@fig-strata). Within species, stratum medians spanned `r f2(min(st_spread))` to `r f2(max(st_spread))`, with medians for pintail ranging from `r f2(st_range("NOPI")[1])` to `r f2(st_range("NOPI")[2])` and those for Mallard ranging from `r f2(st_range("MALL")[1])` to `r f2(st_range("MALL")[2])`. No province consistently stood out across all species, and uncertainty around stratum estimates was much greater than uncertainty around the prairie-wide mean. The map on the web page shows the values for each stratum and their intervals.
+
+```{r}
+#| label: fig-strata
+#| fig-cap: "Recent sustained pond elasticity by survey stratum (median across draws for the most recent ten surveys). Species are shown using shades of their respective colours, with common class boundaries indicated in the legend. The value for each survey stratum is the prairie-wide elasticity plus the stratum-specific deviation and carry-over effect."
+#| fig-alt: "Six small maps of the 15 prairie strata, each species shaded in its own colour. Pintail strata are darkest, mostly 1 to 1.5; Mallard strata are lightest, mostly below 0.5."
+#| fig-height: 4.4
+rd("fig_strata")
+```
+
+### Implications for wetland loss
+
+Across the last ten surveys, Prairie Canada averaged `r k0(sum(sapply(c("MALL", "NOPI", "BWTE", "GADW", "NSHO"), function(s) mean(totals$prairie_total[totals$species == s & totals$year %in% ref]))))` breeding dabbling ducks of the five species, and the mean number of May ponds was `r k0(mean(totals$prairie_ponds[totals$species == "MALL" & totals$year %in% ref]))`. In terms of marginal change, each pond lost proportionally across strata corresponds to a reduction of approximately `r f2(hl$dabblers_per_pond$med)` breeding dabbling ducks (90% interval `r iv(hl$dabblers_per_pond$lo, hl$dabblers_per_pond$hi)`). A sustained loss of 10% of May ponds across all 15 survey strata would correspond to `r k0(-hl$dabbler_change$med)` fewer breeding dabbling ducks (90% interval `r k0(-hl$dabbler_change$hi)` to `r k0(-hl$dabbler_change$lo)`). The calculator provided on the web page allows readers to change the proportion lost, target region, and species.
+
+## Discussion
+
+### Differences among species
+
+The clearest result was the magnitude of the differences among species. Depending on the model, the pintail population response to ponds was about `r round(ratio[1])` to `r round(ratio[2])` times as strong as the Mallard population response, with pintail showing the strongest response and Mallard the weakest across all refits. Previous accounts have long described pintails as opportunistic in their choice of settling locations, while Mallards are more inclined to return to previous breeding sites [@johnson1988]; in drought years, many pintails fly over the prairies to settle farther north [@hestbeck1995]. These elasticities are consistent with this view, but cannot distinguish the effects of settling from those of breeding success or survival. Previous work in the region has examined relationships between duck abundance and wetland conditions by species [@bethke1995], and a recent study of nine species found that responses to climate and land use differed among species, with pintails consistently showing extreme responses [@buderman2023]. For planning, the practical implication is that one value for duck abundance per pond obscures substantial differences among species. Benefits from wetland projects should be estimated separately for breeding pintails and breeding Mallards.
+
+### Pintails
+
+The number of pintails in the Canadian prairies declined from an average of `r format(round(hl$pintail_early / 1e6, 2), nsmall = 2)` million in 1955–64 to `r format(round(hl$pintail_recent / 1e6, 2), nsmall = 2)` million over the most recent ten surveys. If pintails were no longer responding to water availability, pond elasticity would have declined; however, pond elasticity did not decline. Pond elasticity increased in the main model, and probably increased in the most conservative refit. The number of birds available to respond changed. There are currently approximately `r f2(per_pond("NOPI", ref))` breeding pintails per May pond in the Canadian prairies, compared to `r f2(per_pond("NOPI", 1955:1964))` in 1955–64 (@fig-perpond). The number of Mallards per pond changed from `r f2(per_pond("MALL", 1955:1964))` to `r f2(per_pond("MALL", ref))`.
+
+```{r}
+#| label: fig-perpond
+#| fig-cap: "Breeding birds per May pond in Prairie Canada for Mallard and Northern Pintail, 1955–2026 (observed totals, not model estimates)."
+#| fig-alt: "Line chart of birds per pond. Pintail falls from above 1 in the 1950s to about 0.1 to 0.2 recently. Mallard varies between about 0.5 and 2.3, lower recently but with no collapse."
+#| fig-height: 3.2
+rd("fig_perpond")
+```
+
+The increase in elasticity raises the question of whether more pintails now leave the prairies during dry years. A simple check does not support this interpretation. Among pintails within the traditional survey area, the proportion counted in Prairie Canada varied less strongly with prairie pond numbers after 1990 than before. The slope of the logit of this proportion against the logarithm of pond numbers was lower after 1990 (`r f2(val(nopi_over[nopi_over$era == "late", ], "NOPI", "slope"))`, SE `r f2(val(nopi_over[nopi_over$era == "late", ], "NOPI", "slope_se"))`) than before (`r f2(val(nopi_over[nopi_over$era == "early", ], "NOPI", "slope"))`, SE `r f2(val(nopi_over[nopi_over$era == "early", ], "NOPI", "slope_se"))`). Additionally, `r if (all(over_wide$late < over_wide$early)) "the same weakening appears in all six species" else "the pattern differs among species"`. These analyses are plain regressions on autocorrelated annual series; thus, the standard errors are optimistic.
+
+This pattern points towards processes occurring after birds settle and away from settling decisions, and these processes were not measured in this survey. Studies using more detailed data point in the same direction. Modelling habitat selection and changes in population abundance separately, @buderman2020 found that pintails selected cropland for nesting and that areas with more cropland had fewer pintails the following year. An integrated population model indicated that pintail productivity increased with ponds and decreased with agricultural intensification [@zhao2019]. Pintails nest early and often in cropland, where tillage and seeding destroy many nests [@duncan2018]; additionally, duckling survival differs between cropland and grassland [@johns2024]. Changes in adult survival and harvest provide another route, and banding records for pintails on the prairies extend back to 1960 [@bartzen2017]. Testing these explanations requires data beyond the WBPHS summaries by stratum, and the next steps below suggest how.
+
+### Mallards
+
+Mallard elasticity fell over the full record. One explanation is that Mallards now depend less on the number of ponds present in a given spring than previously, possibly due to their use of a broader range of wetlands and nesting vegetation, although this explanation cannot be tested with this analysis. Even with an elasticity of about 0.3, a 10% reduction in ponds would cost about `r pc(1 - 0.9^val(recent, "MALL", "es_med"), 0)` of a stratum's breeding Mallards, which would represent a large number of individuals due to the large Mallard population.
+
+### Using the elasticities
+
+Planning tools in the prairie pothole region operate at the scales of individual wetlands and landscapes. In Prairie Canada, @devries2023 model duck density using survey segments and local habitat information, and combine these estimates with nest survival to estimate breeding productivity under conservation scenarios. I conducted this analysis at the scale of strata ranging in area from `r k0(area[1])` to `r k0(area[2])` km². This analysis therefore cannot address individual quarter sections, but can provide a range of estimates and associated uncertainty for questions concerning the entire region, such as what a given rate of wetland loss would mean for breeding ducks.
+
+## Limitations
+
+- **Wet years are not drainage:** These elasticities were derived from natural variation in pond numbers driven mostly by snowmelt and rainfall. The effects of drainage are permanent, and drainage tends to take small, shallow, temporary wetland basins frequently used by breeding pairs in early spring. The true effects of drainage may be greater or smaller than the effects associated with equivalent changes due to wetting and drying.
+- **Birds may move rather than disappear:** Declines in one region may be partially offset by increases elsewhere; thus, these scenarios indicate reductions in the number of ducks breeding in the selected regions, rather than changes in the continental population.
+- **Ponds are not wetlands:** The survey counts ponds holding water in May, not basins, wetland area, or wetland class. A drained basin and a dry basin look the same in the data.
+- **The estimates carry their own error:** The number of individuals in the breeding population was calculated by extrapolating transect counts and correcting for visibility, and uncertainty in these corrections was not fully reflected in the reported standard errors. The weights accounted only for the reported precision.
+- **Strata are large:** The relationships observed at the scale of strata do not necessarily hold at the scale of individual wetlands or farms.
+- **Residual structure remains:** The k-index and residual autocorrelation indicated that some structure remained in the residuals of the main model. The refit results show that species rankings and directions of change were robust, but interval widths from any single model are probably slightly too narrow.
+- **The uncertainty is approximate:** Draws were taken from a normal approximation to the posterior distribution, and tail quantiles based on 300 draws were subject to some Monte Carlo error.
+
+## Reproducibility
+
+All content presented here was generated from a single `targets` pipeline [@landau2021]. Starting from a clean copy of the repository, `targets::tar_make()` downloads the survey files from ServCat, rebuilds the tidy data, fits 24 models (one main model and three refit models for each of six species), computes all summaries, exports the web page's data files, checks totals against published reports and JavaScript against R, and generates the figures. Package versions are locked using `renv`. All values and figures in this document are read from the pipeline store at render time, ensuring that the text remains consistent with the results. I used `r R.version.string`, mgcv `r packageVersion("mgcv")`, and targets `r packageVersion("targets")` for the analysis.
+
+## Next steps
+
+- **Segment-level counts:** Data at the level of survey transect segments, as used in @devries2023, would allow modelling at the scale of individual wetland landscapes and directly examining small, temporarily inundated basins.
+- **Land cover:** Previous research has shown that pintail abundance and breeding productivity are associated with cropland [@podruzny2002; @zhao2019; @buderman2020]. Including annual crop inventories in this model would test whether the decline in pintails per pond corresponds to cropland area, particularly the area planted with spring-sown crops.
+- **Redistribution:** A joint model encompassing all survey strata, including the U.S. prairies and boreal forest, would estimate the destinations of birds in dry years, rather than treating each region separately.
+- **Visibility corrections:** If uncertainty in the correction factors linking aerial and ground surveys were propagated through the full model, the resulting intervals would be wider and more realistic.
+
+## Appendix: model checks for Northern Pintail
+
+@fig-appraise shows the residual diagnostics for the pintail model. The quantile plot compares deviance residuals with simulated quantiles from the fitted model. The straight band among the residuals for low predicted values is due to zero counts.
+
+```{r}
+#| label: fig-appraise
+#| fig-cap: "Residual diagnostics for the Northern Pintail model using gratia::appraise(): simulation-based quantile plot, scatterplot of residuals against the linear predictor, histogram of residuals, and scatterplot of observed against fitted values."
+#| fig-alt: "Four diagnostic plots. The quantile plot follows the reference line closely. Residuals against the linear predictor scatter evenly around zero apart from a diagonal band of zero counts. The histogram is roughly symmetric. Observed and fitted values lie close to the one-to-one line."
+#| fig-height: 5.2
+fit_nopi <- rd("fit")[[which(spp$species == "NOPI")]]
+set.seed(42)
+checks <- gratia::appraise(fit_nopi$model, method = "simulate", n_simulate = 100,
+                           point_col = site_colours[["ponds"]], point_alpha = 0.35,
+                           line_col = okabe_ito[["vermillion"]])
+# Since appraise() has no argument for specifying histogram fill, change the bar colours directly.
+checks[[3]]$layers[[1]]$aes_params[c("fill", "colour")] <- list(site_colours[["ponds"]], "white")
+checks &
+  theme_site(8.5) & ggplot2::theme(panel.grid.major.x = ggplot2::element_line(colour = site_colours[["grid"]], linewidth = 0.3))
+```
+
+## References
+
+::: {#refs}
+:::

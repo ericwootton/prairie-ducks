@@ -1,0 +1,31 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - methods.qmd
+  resources:
+    - data/site/*.json
+    - data/csv/*.csv
+    - js/*.js
+    - assets/webfonts/*.woff2
+    - assets/img/*.jpg
+
+website:
+  title: "May Ponds and Breeding Ducks in Prairie Canada"
+  site-url: https://ericwootton.github.io/prairie-ducks/
+  description: "How closely breeding ducks on the Canadian prairies follow May ponds: an analysis of the Waterfowl Breeding Population and Habitat Survey, 1955 to 2026."
+  image: assets/img/banner-prairie-potholes.jpg
+  open-graph: true
+  page-navigation: false
+  search: false
+
+# This page's HTML options are in index.qmd, while methods.qmd renders only as PDF.
+
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto
+
+lang: en

@@ -1,0 +1,109 @@
+file,column,description
+breeding_population_by_stratum.csv,stratum,WBPHS stratum number; Prairie Canada is strata 26 to 40
+breeding_population_by_stratum.csv,year,Survey year
+breeding_population_by_stratum.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+breeding_population_by_stratum.csv,estimate,Breeding population estimate (birds) from the WBPHS file; 0 where the stratum was flown but the species was not recorded
+breeding_population_by_stratum.csv,se,Standard error of estimate (birds); 0 where the species was not recorded
+breeding_population_by_stratum.csv,ponds,May ponds in the stratum that year
+breeding_population_by_stratum.csv,fit,Breeding population fitted by the main model (birds); empty where the previous year's ponds are unknown
+breeding_population_by_stratum.csv,lo,Lower end of the 95% confidence interval on fit
+breeding_population_by_stratum.csv,hi,Upper end of the 95% confidence interval on fit
+may_ponds_by_stratum.csv,stratum,WBPHS stratum number; Prairie Canada is strata 26 to 40
+may_ponds_by_stratum.csv,year,Survey year
+may_ponds_by_stratum.csv,ponds,May pond estimate
+may_ponds_by_stratum.csv,ponds_se,Standard error of the May pond estimate
+may_ponds_by_stratum.csv,log_ponds_c,"Natural log of ponds, centred on the stratum's mean log ponds over all years"
+may_ponds_by_stratum.csv,log_ponds_lag_c,log_ponds_c for the previous year; empty when the previous year was not surveyed
+prairie_canada_totals.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+prairie_canada_totals.csv,year,Survey year
+prairie_canada_totals.csv,prairie_total,Breeding population summed over the Prairie Canada strata flown that year
+prairie_canada_totals.csv,n_strata,"Prairie Canada strata flown (14 in 2002 and 2023, when stratum 36 was not flown)"
+prairie_canada_totals.csv,tsa_total,Breeding population summed over every stratum of the traditional survey area
+prairie_canada_totals.csv,prairie_ponds,May ponds summed over the Prairie Canada strata flown that year
+prairie_canada_totals.csv,prairie_share,prairie_total divided by tsa_total
+pond_elasticity_by_year.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+pond_elasticity_by_year.csv,year,Survey year
+pond_elasticity_by_year.csv,lo,"Prairie-average short-term pond elasticity, main model: 2.5th percentile over 300 draws"
+pond_elasticity_by_year.csv,med,Median of the prairie-average short-term pond elasticity over 300 draws
+pond_elasticity_by_year.csv,hi,Prairie-average short-term pond elasticity: 97.5th percentile over 300 draws
+pond_elasticity_recent.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+pond_elasticity_recent.csv,e_lo,Short-term pond elasticity (this spring's ponds) averaged over the strata and the last ten surveys (2015 to 2019 and 2022 to 2026): 2.5th percentile over 300 draws
+pond_elasticity_recent.csv,e_med,Median of the short-term elasticity over 300 draws
+pond_elasticity_recent.csv,e_hi,Short-term elasticity: 97.5th percentile over 300 draws
+pond_elasticity_recent.csv,es_lo,Sustained pond elasticity (this spring's ponds plus the carry-over from last spring's) averaged over the strata and the last ten surveys (2015 to 2019 and 2022 to 2026): 2.5th percentile over 300 draws
+pond_elasticity_recent.csv,es_med,Median of the sustained elasticity over 300 draws
+pond_elasticity_recent.csv,es_hi,Sustained elasticity: 97.5th percentile over 300 draws
+pond_elasticity_by_stratum.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+pond_elasticity_by_stratum.csv,stratum,WBPHS stratum number; Prairie Canada is strata 26 to 40
+pond_elasticity_by_stratum.csv,bpop_ref,Mean breeding population over the last ten surveys (2015 to 2019 and 2022 to 2026)
+pond_elasticity_by_stratum.csv,ponds_ref,Mean May ponds over the last ten surveys (2015 to 2019 and 2022 to 2026)
+pond_elasticity_by_stratum.csv,e_lo,"Short-term pond elasticity (this spring's ponds) for the stratum, averaged over the last ten surveys (2015 to 2019 and 2022 to 2026): 2.5th percentile over 300 draws"
+pond_elasticity_by_stratum.csv,e_med,Median of the short-term elasticity over 300 draws
+pond_elasticity_by_stratum.csv,e_hi,Short-term elasticity: 97.5th percentile over 300 draws
+pond_elasticity_by_stratum.csv,es_lo,"Sustained pond elasticity (this spring's ponds plus the carry-over from last spring's) for the stratum, averaged over the last ten surveys (2015 to 2019 and 2022 to 2026): 2.5th percentile over 300 draws"
+pond_elasticity_by_stratum.csv,es_med,Median of the sustained elasticity over 300 draws
+pond_elasticity_by_stratum.csv,es_hi,Sustained elasticity: 97.5th percentile over 300 draws
+pond_elasticity_by_stratum.csv,per_pond_lo,"Breeding birds lost per May pond lost at the margin, es x bpop_ref / ponds_ref: 2.5th percentile over 300 draws"
+pond_elasticity_by_stratum.csv,per_pond_med,Median of birds lost per pond over 300 draws
+pond_elasticity_by_stratum.csv,per_pond_hi,Birds lost per pond: 97.5th percentile over 300 draws
+model_diagnostics.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+model_diagnostics.csv,n,Stratum-years in the fit
+model_diagnostics.csv,dev_expl,Proportion of deviance explained
+model_diagnostics.csv,r_sq,Adjusted R-squared
+model_diagnostics.csv,tweedie_p,Estimated Tweedie power parameter
+model_diagnostics.csv,lag_coef,Coefficient on last year's log ponds (log_ponds_lag_c)
+model_diagnostics.csv,lag_se,Standard error of lag_coef
+model_diagnostics.csv,resid_acf1_mean,"Lag-1 autocorrelation of Pearson residuals within each stratum, averaged over strata"
+model_diagnostics.csv,resid_acf1_max,Largest absolute lag-1 residual autocorrelation in any one stratum
+model_diagnostics.csv,k_index_min,"Smallest k-index across smooth terms, from mgcv::k.check()"
+model_diagnostics.csv,edf_elasticity,"Effective degrees of freedom of the time-varying pond effect, s(year, by = log_ponds_c)"
+model_diagnostics.csv,p_elasticity,Approximate p-value of the time-varying pond effect
+sensitivity_checks.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+sensitivity_checks.csv,model,"Model: main; trend_x2 (trend smooths with twice the basis dimension); ar1_0.2 (AR(1) residuals, rho = 0.2); year_re (random effect for each survey year)"
+sensitivity_checks.csv,es_lo,Sustained pond elasticity (this spring's ponds plus the carry-over from last spring's) averaged over the strata and the last ten surveys (2015 to 2019 and 2022 to 2026): 2.5th percentile over 300 draws
+sensitivity_checks.csv,es_med,Median of the sustained elasticity over 300 draws
+sensitivity_checks.csv,es_hi,Sustained elasticity: 97.5th percentile over 300 draws
+sensitivity_checks.csv,k_index_min,As in model_diagnostics.csv; empty for ar1_0.2
+sensitivity_checks.csv,dev_expl,As in model_diagnostics.csv; empty for ar1_0.2
+sensitivity_elasticity_by_year.csv,model,"Model: main; trend_x2 (trend smooths with twice the basis dimension); ar1_0.2 (AR(1) residuals, rho = 0.2); year_re (random effect for each survey year)"
+sensitivity_elasticity_by_year.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+sensitivity_elasticity_by_year.csv,year,Survey year
+sensitivity_elasticity_by_year.csv,lo,Prairie-average short-term pond elasticity: 2.5th percentile over 300 draws
+sensitivity_elasticity_by_year.csv,med,Median of the prairie-average short-term pond elasticity over 300 draws
+sensitivity_elasticity_by_year.csv,hi,Prairie-average short-term pond elasticity: 97.5th percentile over 300 draws
+elasticity_shift.csv,model,Model: main or year_re (see sensitivity_checks.csv)
+elasticity_shift.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+elasticity_shift.csv,early_from,First year of the early window (the first ten surveys with a modelled elasticity)
+elasticity_shift.csv,early_to,Last year of the early window
+elasticity_shift.csv,early_med,Median prairie-average short-term elasticity over the early window
+elasticity_shift.csv,late_med,Median prairie-average short-term elasticity over the last ten surveys (2015 to 2019 and 2022 to 2026)
+elasticity_shift.csv,shift_lo,"Late minus early elasticity, computed within each draw: 2.5th percentile over 300 draws"
+elasticity_shift.csv,shift_med,Median of the shift over 300 draws
+elasticity_shift.csv,shift_hi,Shift: 97.5th percentile over 300 draws
+elasticity_shift.csv,p_increase,Share of draws in which the late elasticity is higher
+prairie_share_response.csv,species,"Species code: MALL Mallard, NOPI Northern Pintail, BWTE Blue-winged Teal, GADW Gadwall, NSHO Northern Shoveler, CANV Canvasback"
+prairie_share_response.csv,era,early or late
+prairie_share_response.csv,from,First year of the era
+prairie_share_response.csv,to,Last year of the era
+prairie_share_response.csv,n,Survey years in the era
+prairie_share_response.csv,share_mean,Mean prairie_share over the era
+prairie_share_response.csv,slope,Least-squares slope of logit(prairie_share) on log(prairie_ponds)
+prairie_share_response.csv,slope_se,"Standard error of the slope, treating years as independent (so too small)"
+scenario_parity_check.csv,scenario,Test scenario number
+scenario_parity_check.csv,species,"Species included, joined with +"
+scenario_parity_check.csv,strata,Strata included
+scenario_parity_check.csv,loss,Proportion of May ponds lost
+scenario_parity_check.csv,sustained,TRUE if the sustained elasticity is used
+scenario_parity_check.csv,stat,"lo, med, or hi: 5th, 50th, or 95th percentile over draws of the change in breeding birds"
+scenario_parity_check.csv,r,Change in breeding birds computed in R
+scenario_parity_check.csv,js,"The same computed by the site's JavaScript, run in V8"
+scenario_parity_check.csv,rel_diff,Relative difference between r and js
+published_totals_check.csv,year,Survey year
+published_totals_check.csv,quantity,What is compared
+published_totals_check.csv,ours,Total rebuilt from the stratum file by this pipeline
+published_totals_check.csv,published_millions,"Figure published in the report, in millions"
+published_totals_check.csv,source,USFWS report the figure comes from
+published_totals_check.csv,match,TRUE if ours rounds to the published figure
+data_dictionary.csv,file,CSV file name
+data_dictionary.csv,column,Column name
+data_dictionary.csv,description,What the column holds

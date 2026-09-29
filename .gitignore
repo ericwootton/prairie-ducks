@@ -1,0 +1,23 @@
+# Built site: quarto publish gh-pages renders it and pushes it to the gh-pages branch
+_site/
+/.quarto/
+*.typ
+
+# targets store (large; rebuilt by targets::tar_make())
+_targets/
+
+# Unzipped copies of the raw downloads; the pipeline unzips the committed zips again
+data-raw/stratum_estimates/
+data-raw/strata/
+
+# R, renv and editors
+.Rhistory
+.RData
+.Rproj.user/
+renv/library/
+renv/staging/
+node_modules/
+.DS_Store
+Thumbs.db
+
+**/*.quarto_ipynb

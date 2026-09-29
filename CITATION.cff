@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this analysis, its data tables, or its code, please cite it as below, and cite the survey data too."
+type: software
+title: "May ponds and breeding ducks in Prairie Canada, 1955 to 2026"
+version: "1.0.0"
+date-released: "2026-09-29"
+authors:
+  - family-names: "Wootton"
+    given-names: "Eric"
+repository-code: "https://github.com/ericwootton/prairie-ducks"
+url: "https://ericwootton.github.io/prairie-ducks/"
+license: MIT
+abstract: >-
+  An analysis of the Waterfowl Breeding Population and Habitat Survey for the 15
+  Prairie Canada strata, 1955 to 2026. Hierarchical generalized additive models
+  estimate how strongly breeding numbers of five dabbling ducks and canvasback
+  follow May ponds, whether that response has changed over time, and what a
+  given loss of ponds implies for breeding ducks. The code is MIT licensed; the
+  derived tables, figures, and text are CC BY 4.0.
+keywords:
+  - waterfowl
+  - prairie pothole region
+  - wetland loss
+  - northern pintail
+  - generalized additive models
+  - WBPHS
+references:
+  - type: data
+    title: "WBPHS Traditional Survey Area Population Estimates, 1955 to Present"
+    authors:
+      - family-names: "Eyler"
+        given-names: "M."
+      - family-names: "Walter"
+        given-names: "A."
+    year: 2026
+    publisher:
+      name: "U.S. Fish and Wildlife Service, Division of Migratory Bird Management"
+    url: "https://iris.fws.gov/APPS/ServCat/Reference/Profile/142673"
