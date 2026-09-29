@@ -4,6 +4,8 @@ How strongly do breeding ducks on the Canadian prairies follow the number of pon
 
 **Site:** <https://ericwootton.github.io/prairie-ducks/>
 
+**Archive:** [doi:10.5281/zenodo.23043511](https://doi.org/10.5281/zenodo.23043511)
+
 This is an independent portfolio project built on public data. It is not affiliated with, commissioned by, or endorsed by Ducks Unlimited Canada, the Institute for Wetland and Waterfowl Research, the U.S. Fish and Wildlife Service, or the Canadian Wildlife Service. The analysis has not been peer reviewed.
 
 ## What it finds
